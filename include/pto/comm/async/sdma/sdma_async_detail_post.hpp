@@ -40,10 +40,19 @@ PTO_INTERNAL bool CheckPostDoneIds(
             ++queue;
             continue;
         }
-        uint32_t attempts = 0U;
+        const uint64_t waitStart = blocking ? get_sys_cnt() : 0ULL;
         while (GetValue<uint64_t>(GetPostDoneRecordAddr(postDoneBase, queue), tmpBuf) < postId) {
-            if (!blocking || ++attempts >= kPostPollLimit) {
+            if (!blocking) {
                 return false;
+            }
+            const uint64_t pollEnd = get_sys_cnt();
+            if (pollEnd - waitStart >= kPostWaitTimeoutTicks) {
+                return false;
+            }
+            // Continuous completion reads from many AIVs can prevent SDMA completion
+            // from becoming observable. Leave a short gap without extending the wait
+            // budget by a fixed delay multiplied by the old polling-attempt limit.
+            while (get_sys_cnt() - pollEnd < kPostPollIntervalTicks) {
             }
         }
         queueMask >>= 1U;

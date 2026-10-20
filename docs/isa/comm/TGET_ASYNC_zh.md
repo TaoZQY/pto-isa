@@ -161,6 +161,9 @@ if (comm::BuildAsyncSession<comm::DmaEngine::RDMA>(scratchTile, rdmaWorkspace, m
 
 这意味着多次 `TGET_ASYNC` 调用后，只需对最后一个返回的 `AsyncEvent` 调用一次 `Wait`，即可等待所有pending操作完成（类似shmem的quiet语义）。
 
+SDMA `Wait` 在未完成的轮询之间间隔约 1 微秒，每个队列的等待上限为 20 毫秒，
+超时返回 `false`；`Test` 保持非阻塞。超时不会取消操作，也不代表可以复用其缓冲区。
+
 RDMA操作涉及不同peer时，必须分别等待每个peer的最后一个Event。
 
 同一Session最多可有64个未完成操作，超过后提交可能产生背压。

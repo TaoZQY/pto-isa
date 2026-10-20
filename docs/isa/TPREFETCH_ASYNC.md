@@ -48,6 +48,11 @@ Waiting for the returned prefetch event also completes every earlier SDMA operat
 
 `comm::AsyncEvent` - handle for asynchronous completion tracking. Call `evt.Wait(ctx.GetSession())` before a dependent `TLOAD` when the consumer must observe prefetched data.
 
+SDMA `Wait` spaces unsuccessful completion reads by approximately 1 microsecond
+and returns `false` if a queue remains incomplete for 20 milliseconds. `Test`
+performs a nonblocking check. Check the return value: a timeout does not cancel
+the outstanding operation or permit its workspace to be reused.
+
 ## Constraints
 
 - Source data must be in Global Memory (GM/HBM address space).

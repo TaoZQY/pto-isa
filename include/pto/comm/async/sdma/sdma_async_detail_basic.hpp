@@ -28,7 +28,13 @@ static_assert(kSdmaEventSlotCount > 0, "SDMA_EVENT_SLOT_COUNT must be >= 1");
 using UbTmpBuf = TmpBuffer;
 constexpr uint32_t kPostDoneStrideBytes = 64U;
 constexpr uint64_t kSdmaInt32AtomicAddOpcode = 0x21U;
-constexpr uint32_t kPostPollLimit = 100000U;
+#ifdef PTO_NPU_ARCH_A5
+constexpr uint64_t kPostSystemCounterTicksPerUs = 1000ULL;
+#else
+constexpr uint64_t kPostSystemCounterTicksPerUs = 50ULL;
+#endif
+constexpr uint64_t kPostPollIntervalTicks = kPostSystemCounterTicksPerUs;
+constexpr uint64_t kPostWaitTimeoutTicks = 20000ULL * kPostSystemCounterTicksPerUs;
 constexpr uint32_t kSdmaHandleQueueBits = 6U;
 constexpr uint32_t kSdmaHandlePostIdBits = 64U - kSdmaHandleQueueBits;
 constexpr uint64_t kSdmaHandlePostIdMask = (1ULL << kSdmaHandlePostIdBits) - 1ULL;

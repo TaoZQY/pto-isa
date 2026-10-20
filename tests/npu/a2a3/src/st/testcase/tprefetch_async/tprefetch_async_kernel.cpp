@@ -327,3 +327,59 @@ bool RunPrefetchAsyncL2Benefit(int deviceId, double& coldAverageUs, double& pref
 #endif
 
 #undef PTO_TPREFETCH_ASYNC_L2_BENEFIT_ST
+
+__global__ AICORE void SdmaPollingChecksKernel(__gm__ uint8_t* records, __gm__ uint64_t* metrics)
+{
+    using namespace pto::comm::sdma::detail;
+    const uint32_t worker = get_block_idx();
+    __gm__ uint8_t* record = records + worker * 64U;
+    __gm__ uint64_t* result = metrics + worker * 8U;
+    pto::Tile<pto::TileType::Vec, uint8_t, 1, 256> scratch;
+    TASSIGN(scratch, 0);
+    UbTmpBuf tmpBuf;
+    MakeTmpBufferFromTile(scratch, tmpBuf);
+
+    // An absent completion must make Test return immediately and Wait time out.
+    const uint64_t testStart = get_sys_cnt();
+    result[0] = CheckPostDoneIds(record, 1ULL, 1ULL, tmpBuf, false);
+    result[1] = get_sys_cnt() - testStart;
+    const uint64_t waitStart = get_sys_cnt();
+    result[2] = CheckPostDoneIds(record, 1ULL, 1ULL, tmpBuf, true);
+    result[3] = get_sys_cnt() - waitStart;
+
+    // A ready record, including a value newer than the requested post, succeeds.
+    SetValue<uint64_t>(record, tmpBuf, 0U, 2ULL);
+    result[4] = CheckPostDoneIds(record, 1ULL, 1ULL, tmpBuf, false);
+    result[5] = CheckPostDoneIds(record, 2ULL, 1ULL, tmpBuf, true);
+    pipe_barrier(PIPE_ALL);
+    dcci((__gm__ void*)result, cache_line_t::SINGLE_CACHE_LINE);
+    dsb(DSB_DDR);
+}
+
+extern "C" bool RunSdmaPollingChecks(int deviceId)
+{
+    constexpr uint32_t kWorkers = 48U;
+    constexpr size_t kBytes = kWorkers * 64U;
+    SingleCardTestEnv env;
+    if (!env.Init(deviceId, kBytes)) {
+        env.Teardown();
+        return false;
+    }
+    env.aclStatus |= aclrtMemset(env.srcDevice, kBytes, 0, kBytes);
+    env.aclStatus |= aclrtMemset(env.dstDevice, kBytes, 0, kBytes);
+    if (env.aclStatus == 0) {
+        SdmaPollingChecksKernel<<<kWorkers, nullptr, env.stream>>>(
+            reinterpret_cast<uint8_t*>(env.srcDevice), reinterpret_cast<uint64_t*>(env.dstDevice));
+        env.SyncAndReadBack();
+    }
+    bool ok = env.aclStatus == 0;
+    const uint64_t* metrics = reinterpret_cast<const uint64_t*>(env.outputHost);
+    for (uint32_t worker = 0U; ok && worker < kWorkers; ++worker) {
+        const uint64_t* result = metrics + worker * 8U;
+        // A2/A3 SYS_CNT is 50 MHz. Allow scheduling slack on the upper bound.
+        ok = result[0] == 0ULL && result[1] < 50000ULL && result[2] == 0ULL && result[3] >= 1000000ULL &&
+             result[3] < 2000000ULL && result[4] == 1ULL && result[5] == 1ULL;
+    }
+    env.Teardown();
+    return ok && env.aclStatus == 0;
+}

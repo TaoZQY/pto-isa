@@ -164,6 +164,11 @@ The completion mechanism differs by engine, but user-facing quiet semantics are 
 
 This means after multiple `TGET_ASYNC` calls, a single `Wait` on the last returned `AsyncEvent` drains all pending operations (similar to shmem's quiet semantics).
 
+SDMA `Wait` uses an approximately 1-microsecond interval between unsuccessful
+completion reads and a 20-millisecond timeout per queue. It returns `false` on
+timeout; `Test` remains nonblocking. A timeout does not cancel an operation or
+make its buffers safe to reuse.
+
 For RDMA operations targeting different peers, wait for the last event of each peer separately.
 
 Up to 64 operations may be outstanding in one session before submission can apply backpressure.

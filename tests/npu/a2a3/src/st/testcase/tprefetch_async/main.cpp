@@ -48,6 +48,8 @@ TEST_F(TPrefetchAsyncTest, case_float_4096_shared_external_session)
     ASSERT_TRUE((RunPrefetchAsyncCorrectness<float, 4096>(0, 16U, true, true)));
 }
 
+TEST_F(TPrefetchAsyncTest, case_sdma_polling_completion_and_timeout) { ASSERT_TRUE(RunSdmaPollingChecks(0)); }
+
 // Compare device-side TLOAD latency for cold data against data prefetched into L2.
 TEST_F(TPrefetchAsyncTest, case_float_4096_l2_access_benefit)
 {

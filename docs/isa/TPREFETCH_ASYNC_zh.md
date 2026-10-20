@@ -49,6 +49,10 @@ PTO_INST comm::AsyncEvent TPREFETCH_ASYNC(GlobalData &src, PrefetchAsyncContext 
 返回`comm::AsyncEvent`，用于跟踪异步预取完成状态。后续`TLOAD`依赖预取结果时，调用
 `evt.Wait(ctx.GetSession())`等待完成。
 
+SDMA `Wait` 在未完成的轮询之间间隔约 1 微秒，单个队列等待 20 毫秒仍未完成时
+返回 `false`。`Test` 保持非阻塞检查。调用方必须检查返回值：超时不会取消未完成
+操作，也不代表可以复用其 workspace。
+
 ## 约束
 
 - 源数据必须位于 Global Memory (GM/HBM)。

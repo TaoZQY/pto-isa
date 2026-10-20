@@ -20,3 +20,5 @@ bool RunPrefetchAsyncCorrectness(
     int deviceId, uint32_t postCount = 1U, bool waitEachEvent = true, bool useExternalSession = false);
 
 bool RunPrefetchAsyncL2Benefit(int deviceId, double& coldAverageUs, double& prefetchedAverageUs);
+
+extern "C" bool RunSdmaPollingChecks(int deviceId);
